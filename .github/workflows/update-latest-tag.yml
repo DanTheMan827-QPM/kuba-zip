@@ -1,0 +1,42 @@
+name: Update to latest kuba--/zip tag
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    permissions:
+      actions: write
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Configure git
+        uses: DanTheMan827/config-git-user-action@v1
+        with:
+          user_name: ${{ github.actor }}
+
+      - name: Get the latest tag from kuba--/zip
+        id: get_latest_tag
+        run: |
+          echo "tag=$(curl -s https://api.github.com/repos/kuba--/zip/tags | jq -r '.[0].name')" >> $GITHUB_OUTPUT
+
+      - name: Dispatch the update workflow if the tag does not exist
+        run: |
+          if git tag -l | grep -x "${{ steps.get_latest_tag.outputs.tag }}"; then
+            echo "Tag ${{ steps.get_latest_tag.outputs.tag }} already exists, skipping dispatch."
+          else
+            echo "Tag ${{ steps.get_latest_tag.outputs.tag }} does not exist, dispatching workflow."
+            curl -X POST \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: token ${{ github.token }}" \
+              https://api.github.com/repos/${{ github.repository }}/actions/workflows/update.yml/dispatches \
+              -d '{"ref":"${{ github.event.repository.default_branch }}", "inputs": {"tag": "${{ steps.get_latest_tag.outputs.tag }}"}}'
+          fi
