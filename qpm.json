@@ -1,0 +1,40 @@
+{
+  "$schema": "https://raw.githubusercontent.com/QuestPackageManager/QPM.Package/refs/heads/main/qpm.schema.json",
+  "version": "0.4.0",
+  "sharedDir": "shared",
+  "dependenciesDir": "extern",
+  "info": {
+    "name": "kuba-zip",
+    "id": "kuba-zip",
+    "version": "0.1.0",
+    "url": "https://github.com/DanTheMan827-QPM/kuba-zip",
+    "additionalData": {
+      "staticLinking": true,
+      "overrideSoName": "libzip.a",
+      "cmake": true,
+      "compileOptions": {
+        "systemIncludes": [
+          "shared"
+        ],
+        "cFlags": [
+          "-lz"
+        ],
+        "cppFlags": [
+          "-lz"
+        ]
+      }
+    }
+  },
+  "workspace": {
+    "scripts": {
+      "build": [
+        "pwsh ./scripts/build.ps1 $0:?"
+      ]
+    },
+    "ndk": "^27.2.12479018",
+    "qmodIncludeDirs": [],
+    "qmodIncludeFiles": [],
+    "qmodOutput": null
+  },
+  "dependencies": []
+}

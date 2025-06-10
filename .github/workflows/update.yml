@@ -1,0 +1,88 @@
+name: Publish Submodule Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish"
+        required: true
+        default: "v1.0.0"
+      remote:
+        description: "The remote ref to use, defaults to the tag"
+        required: false
+        default: ""
+
+jobs:
+  publish:
+    if: startsWith(inputs.tag, 'v')
+
+    permissions:
+      contents: write
+      actions: write
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Configure git
+        uses: DanTheMan827/config-git-user-action@v1
+        with:
+          user_name: ${{ github.actor }}
+
+      - name: Set the correct remote
+        id: get_remote
+        run: |
+          if [[ "${{ inputs.remote }}" == "" ]]; then
+            echo "No remote ref provided, using the tag"
+            echo "remote=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "Using remote ref: ${{ inputs.remote }}"
+            echo "remote=${{ inputs.remote }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Add the submodule
+        run: |
+          git submodule add https://github.com/kuba--/zip.git zip
+          (cd zip && git fetch --all)
+          (cd zip && git checkout ${{ steps.get_remote.outputs.remote }})
+
+      - name: Validate the submodule
+        run: |
+          [ -f zip/src/zip.h ] || (echo "zip.h not found" && exit 1)
+
+      - name: Copy headers
+        run: |
+          mkdir -p shared/zip
+          (cd shared/zip && ln -s ../../zip/src/*.h* .)
+
+      - name: Setup qpm
+        uses: fernthedev/qpm-action@v1
+        with:
+          workflow_token: ${{ secrets.GITHUB_TOKEN }}
+          restore: false
+          resolve_ndk: false
+          cache: false
+
+      - name: QPM restore
+        run: |
+          qpm restore --update
+
+      - name: Add Files and Tag
+        run: |
+          git add -A .
+          git commit -m "Update submodule to ${{ steps.get_remote.outputs.remote }}"
+          git tag "${{ inputs.tag }}"
+          git push origin "${{ inputs.tag }}"
+
+      - name: Dispatch the publish workflow
+        run: |
+          curl -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${{ github.token }}" \
+            https://api.github.com/repos/${{ github.repository }}/actions/workflows/publish.yml/dispatches \
+            -d '{"ref":"refs/tags/${{ inputs.tag }}"}'
